@@ -9,12 +9,13 @@ from matplotlib.animation import FuncAnimation
 
 true_launch_time_ms = 1.1737e7
 
-threshold = 40
-window_size_ms = 1000
+threshold = 50
+window_size_ms = 500
 data_interval_ms = 300
 
 plt.switch_backend('TkAgg')
 acl_mags = {}  # Bunch of timestamp: magnitude pairs
+acl_comps = {} # Bunch of timestamp:
 
 # load in the all_data.csv
 df = pd.read_csv("all_data.csv", header=None)
@@ -40,6 +41,12 @@ for i in range(1, len(df.columns)):
     if last_timestamp_ms != 0:
         intervals.append(timestamp - last_timestamp_ms)
     mag = df.iloc[4, i]
+    x = df.iloc[1, i]
+    y = df.iloc[2, i]
+    z = df.iloc[3, i]
+    acl_comps[timestamp] = {"x": x, "y": y, "z": z}
+
+
     acl_mags[timestamp] = mag
     last_timestamp_ms = timestamp
 
@@ -76,7 +83,12 @@ def get_launch_moments(window_size_ms, threshold_ms2, data_interval_ms) -> list[
     :return: A list of timestamps where the magnitude of the acceleration is greater than threshold_ms2
     """
     launch_moments_ms = []
+
     largest_timestamp = max(acl_mags)
+
+    debug_x = []
+    debug_y_median_of_comps_first = []
+    debug_y_median_of_mags = []
 
 
     # iterate through the acl_mags dict
@@ -90,21 +102,41 @@ def get_launch_moments(window_size_ms, threshold_ms2, data_interval_ms) -> list[
             continue
 
         vals = []
+
+        # Rolling window for each component
+        x_vals = []
+        y_vals = []
+        z_vals = []
         # iterate through the acl_mags dict and populate the vals list
         for j in range(int(start_timestamp), int(end_timestamp + 1)):
             if j in acl_mags:
                 vals.append(acl_mags[j])
+            if j in acl_comps:
+                x_vals.append(acl_comps[j]["x"])
+                y_vals.append(acl_comps[j]["y"])
+                z_vals.append(acl_comps[j]["z"])
 
-        # if the median of the vals list is greater than the threshold, add the start_timestamp to the launch_moments_ms list
-        if statistics.median(vals) > threshold_ms2:
+        # Get the median of each component and then calculate the magnitude from the medians
+        m_x = statistics.median(x_vals)
+        m_y = statistics.median(y_vals)
+        m_z = statistics.median(z_vals)
+        m_mag = (m_x**2 + m_y**2 + m_z**2)**0.5
+
+        mags_median = statistics.median(vals)
+
+        debug_x.append(end_timestamp)
+        debug_y_median_of_comps_first.append(m_mag)
+        debug_y_median_of_mags.append(mags_median)
+
+        if m_mag > threshold_ms2:
             launch_moments_ms.append(end_timestamp)
 
-    return launch_moments_ms
+    return launch_moments_ms, debug_x, debug_y_median_of_comps_first, debug_y_median_of_mags
 
 
 
 
-launch_moments = get_launch_moments(window_size_ms, threshold, data_interval_ms)
+launch_moments, debug_x, debug_y_median_of_comps_first, debug_y_median_of_mags  = get_launch_moments(window_size_ms, threshold, data_interval_ms)
 # Plot the launch moments as point on the mag line
 # How to make these showup ontop of the mag line? A:
 plt.scatter(launch_moments, [threshold] * len(launch_moments), color='gold', label="Launch Moments", zorder=5)
@@ -116,6 +148,10 @@ plt.plot([min(acl_mags.keys()), max(acl_mags.keys())], [threshold, threshold], l
 
 # Plot the magnitude of the acceleration
 plt.plot(acl_mags.keys(), acl_mags.values(), label="Magnitude of Acceleration", color="navy")
+
+# Plot the median of the acceleration
+plt.plot(debug_x, debug_y_median_of_mags, label="Median of Magnitude of Acceleration", color="green")
+plt.plot(debug_x, debug_y_median_of_comps_first, label="Median of Components First", color="red")
 
 
 plt.xlabel("Timestamp (ms)")
