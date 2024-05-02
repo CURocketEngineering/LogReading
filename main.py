@@ -59,7 +59,7 @@ def decode_serial_file(file_path):
     with open(file_path, 'rb') as f:
         lines = f.read().split(b"\0\r\n")
         for line in lines:
-            # print(line)
+            line = line.strip()
             if len(line) != 12:
                 print("bad length: ", len(line))
                 print(f"Invalid line: {line}")
@@ -75,6 +75,9 @@ def decode_serial_file(file_path):
             measurement = data[2]
 
             all_data.add(name, timestamp, measurement)
+
+            if name == "sta":
+                print(data)
 
             bytes_of_good_data += 8
             bytes_of_measurements += 4
@@ -102,12 +105,12 @@ def decode_serial_file(file_path):
 
 
     # Save all_data as a csv
-    df = pd.DataFrame(all_data.data)
-    df.to_csv("all_data.csv")
+    # df = pd.DataFrame(all_data.data)
+    # df.to_csv("all_data.csv")
 
 
 if __name__ == "__main__":
-    decode_serial_file("LOG00029.TXT")
+    decode_serial_file("LOG00035.TXT")
 
 """
 Expected:

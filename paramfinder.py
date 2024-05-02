@@ -10,8 +10,8 @@ from matplotlib.animation import FuncAnimation
 true_launch_time_ms = 1.1737e7
 
 threshold = 50
-window_size_ms = 500
-data_interval_ms = 300
+window_size_ms = 1000
+data_interval_ms = 60
 
 plt.switch_backend('TkAgg')
 acl_mags = {}  # Bunch of timestamp: magnitude pairs
@@ -92,7 +92,7 @@ def get_launch_moments(window_size_ms, threshold_ms2, data_interval_ms) -> list[
 
 
     # iterate through the acl_mags dict
-    for i, end_timestamp in tqdm(enumerate(acl_mags)):
+    for i, end_timestamp in enumerate(acl_mags):
         # Looking backwards to get the start_timestamp
         start_timestamp = end_timestamp - window_size_ms
         while start_timestamp not in acl_mags and start_timestamp > 0:
@@ -133,10 +133,45 @@ def get_launch_moments(window_size_ms, threshold_ms2, data_interval_ms) -> list[
 
     return launch_moments_ms, debug_x, debug_y_median_of_comps_first, debug_y_median_of_mags
 
+def good_launch_moment(launch_moment, true_launch_time_ms):
+    return abs(launch_moment - true_launch_time_ms) < 2500
+def find_min_max_params(window_size):
+    """
+    Finds the best parameters for the window size and threshold
+
+    For each window size, find the min and max thresholds that still work
+    """
+
+    min_threshold = 0
+    max_threshold = 80
+    temperature = 50
+    while min_threshold < max_threshold:
+        print(
+            f"Window: {window_size}, Temperature: {temperature}")
+        # If the min works, lower it
+        moments, _, _, _ = get_launch_moments(window_size, min_threshold, data_interval_ms)
+        if moments and good_launch_moment(min(moments), true_launch_time_ms):
+            print(f"Working min: {min_threshold}")
+            min_threshold -= temperature
+        else:
+            min_threshold += temperature
+
+        # If the max works, raise it
+        moments, _, _, _ = get_launch_moments(window_size, max_threshold, data_interval_ms)
+        if moments and good_launch_moment(min(moments), true_launch_time_ms):
+            print(f"Working max: {max_threshold}")
+            max_threshold += temperature
+        else:
+            max_threshold -= temperature
+
+        temperature /= 2
 
 
 
 launch_moments, debug_x, debug_y_median_of_comps_first, debug_y_median_of_mags  = get_launch_moments(window_size_ms, threshold, data_interval_ms)
+
+
+
 # Plot the launch moments as point on the mag line
 # How to make these showup ontop of the mag line? A:
 plt.scatter(launch_moments, [threshold] * len(launch_moments), color='gold', label="Launch Moments", zorder=5)
