@@ -54,6 +54,8 @@ def decode_serial_file(file_path):
     bytes_of_good_data = 0
     bytes_of_data = 0
 
+    number_of_xac = 0
+
     all_data = AllData()
 
     with open(file_path, 'rb') as f:
@@ -79,6 +81,9 @@ def decode_serial_file(file_path):
             if name == "sta":
                 print(data)
 
+            if name == "xac":
+                number_of_xac += 1
+
             bytes_of_good_data += 8
             bytes_of_measurements += 4
             bytes_of_data += 14
@@ -95,6 +100,9 @@ def decode_serial_file(file_path):
     seconds_elapsed = (oldest_timestamp - youngest_timestamp) / 1000
     print("Sensor entries per second:", len(lines) / seconds_elapsed)
 
+    print("Number of xac entries:", number_of_xac)
+    print("Number of xac entries per second:", number_of_xac / seconds_elapsed)
+
     measurement_data_per_second = bytes_of_measurements / seconds_elapsed
     print("------Data Rates (Bytes)---------")
     print(f"actual measurement data per second: {measurement_data_per_second}")
@@ -110,7 +118,7 @@ def decode_serial_file(file_path):
 
 
 if __name__ == "__main__":
-    decode_serial_file("LOG00035.TXT")
+    decode_serial_file("LOG00029.TXT")
 
 """
 Expected:
