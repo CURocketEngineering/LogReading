@@ -1,31 +1,27 @@
-"""
 
-struct SerialData{
-    char name [4]; // 3 chars for name and 1 for null
-    uint32_t timestamp_ms;
-    float data;
-};
-
-
-void dataToSDCardSerial(String name, uint32_t timestamp_ms, float data, HardwareSerial &SD_serial){
-    // Pack the data together
-    struct SerialData theData = {"", timestamp_ms, data};
-    strncpy(theData.name, name.c_str(), 3);
-    theData.name[3] = '\0';
-    SD_serial.write((uint8_t *) &theData, sizeof(theData));
-    char dlim [2] = {'\0', '\n'};
-    SD_serial.write((uint8_t *) &dlim, sizeof(dlim));
-
-}
-
-
-Data has been saved to a file using the above format, now I want to
-decode the data back to its original form, and it's contents
-"""
 
 import struct
 import pandas as pd
+from enum import Enum
 
+class DataNames(Enum):
+    ACCELEROMETER_X = 0
+    ACCELEROMETER_Y = 1
+    ACCELEROMETER_Z = 2
+    GYROSCOPE_X = 3
+    GYROSCOPE_Y = 4
+    GYROSCOPE_Z = 5
+    TEMPERATURE = 6
+    PRESSURE = 7
+    ALTITUDE = 8
+    MAGNETOMETER_X = 9
+    MAGNETOMETER_Y = 10
+    MAGNETOMETER_Z = 11
+    MEDIAN_ACCELERATION_SQUARED = 12
+    AVERAGE_CYCLE_RATE = 13
+
+    def __str__(self):
+        return self.name.lower()
 
 class AllData:
     def __init__(self):
@@ -58,38 +54,42 @@ def decode_serial_file(file_path):
 
     all_data = AllData()
 
+    temp_out = open("temp.txt", "w")
+
+    # headers
+    temp_out.write(f"{'Data Name':<30} {'Timestamp':<15} {'Data':<10}\n")
+
     with open(file_path, 'rb') as f:
         lines = f.read().split(b"\0\r\n")
         for line in lines:
-            line = line.strip()
-            if len(line) != 12:
+            if len(line) != 9:
                 print("bad length: ", len(line))
                 print(f"Invalid line: {line}")
                 continue
-            data = struct.unpack("4sIf", line)
-            timestamp = data[1]
+            data = struct.unpack("IfB", line)
+            timestamp = data[0]
+            measurement = data[1]
+            name = data[2]
+
             if timestamp > oldest_timestamp:
                 oldest_timestamp = timestamp
             if timestamp < youngest_timestamp:
                 youngest_timestamp = timestamp
 
-            name = data[0][:3].decode()
-            measurement = data[2]
+            # all_data.add(name, timestamp, measurement)
 
-            all_data.add(name, timestamp, measurement)
+            
 
-            if name == "sta":
-                print(data)
-
-            if name == "xac":
+            if name == DataNames.ACCELEROMETER_X.value:
                 number_of_xac += 1
 
             bytes_of_good_data += 8
             bytes_of_measurements += 4
             bytes_of_data += 14
 
-            print(f"data name: {name} timestamp: {timestamp}"
+            print(f"data name: {DataNames(name)} timestamp: {timestamp}"
                   f" data: {measurement}")
+            temp_out.write(f"{DataNames(name):<30} {timestamp:<15} {measurement:<10}\n")
 
     print(f"youngest timestamp: {youngest_timestamp}")
     print(f"oldest timestamp: {oldest_timestamp}")
@@ -118,7 +118,7 @@ def decode_serial_file(file_path):
 
 
 if __name__ == "__main__":
-    decode_serial_file("LOG00029.TXT")
+    decode_serial_file("LOG00060.TXT")
 
 """
 Expected:
